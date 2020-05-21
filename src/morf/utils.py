@@ -1,5 +1,6 @@
 import vtk
 import numpy as np
+from vtk.util.numpy_support import vtk_to_numpy, numpy_to_vtk
 
 def clean_mesh(mesh):
     cleaner = vtk.vtkCleanPolyData()
@@ -106,3 +107,20 @@ def np_to_vtkPoints(points):
 
 def vtkPoints_to_np(points):
     return vtk.util.numpy_support.vtk_to_numpy(points.GetData())
+
+
+def vtkImage_to_np(image):
+    rows, cols, _ = image.GetDimensions()
+    scalars = image.GetPointData().GetScalars()
+
+    np_array = vtk_to_numpy(scalars)
+    np_array = np_array.reshape(rows, cols, -1)
+
+    # vtk and cv2 use different colorspaces...
+    red, green, blue = np.dsplit(np_array, np_array.shape[-1])
+    np_array = np.stack([blue, green, red], 2).squeeze()
+
+    # the first axis of the image is also flipped...
+    np_array = np.flip(np_array, 0)
+
+    return np_array

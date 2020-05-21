@@ -3,6 +3,7 @@ channels:
   - menpo
 dependencies:
   - numpy
+  - scipy
   - opencv3
   - vtk
   - pip

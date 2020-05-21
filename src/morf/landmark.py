@@ -4,37 +4,62 @@ import cv2
 import vtk
 import numpy as np
 import face_recognition as fr
-from vtk.util.numpy_support import vtk_to_numpy
 
 from . import utils
 
 _image_size = 1000
 _face_distance = 700
+_landmark_ids = [36,39,27,42,45,30,33,60,51,64,57,8]
 
 
 def identify_3D_landmarks(mesh):
-    # initial guess of facial position/orientation
-    focal_point = _compute_centroid(mesh)
-    camera_position = (focal_point[0], focal_point[1], focal_point[2]+_face_distance)
-    view_angle = 70
+    """
+    Returns a set of 3D facial landmarks on the mesh
 
-    scene = Scene(mesh, camera_position, focal_point, view_angle)
-    image = scene.captureImage()
+    :param mesh: vtkPolyData polygonal mesh
+    :return: A np array of 3D points
+    """
 
-    landmarks_2d = identify_2D_landmarks(image)
-    landmarks_3d = [scene.pickPoint(point_2d) for point_2d in landmarks_2d]
+    # Find the coarse facial orientation in 3D
+    c = _compute_centroid(mesh)
+    d = 600
+    camera_positions = [
+        (c[0], c[1], c[2]+d),
+        (c[0], c[1]+d, c[2]+d),
+        (c[0]+d, c[1], c[2]+d),
+        (c[0], c[1]-d, c[2]+d),
+        (c[0]-d, c[1], c[2]+d)
+    ]
+
+    landmarks_3d = None
+    for position in camera_positions:
+        scene = Scene(mesh, position, c, 50, 500)
+        image = scene.captureImage()
+
+        if len(fr.face_landmarks(image)) > 0: 
+            print("Face Located")
+            landmarks_2d = identify_2D_landmarks(image)
+            _check_landmarks_2d(image, landmarks_2d)
+            landmarks_3d = [scene.pickPoint(point_2d) for point_2d in landmarks_2d]
+            break
+
+    if landmarks_3d == None:
+        print("Face Not Found!")
+        return
 
     # recompute the camera position for better landmarks
-    focal_point, camera_position = _compute_camera(landmarks_3d)
-    view_angle = 20
-    scene = Scene(mesh, camera_position, focal_point, view_angle)
-    image = scene.captureImage()
+    for i in range(2):
+        focal_point, camera_position, view_up = _compute_frontal_camera_settings(landmarks_3d, 800)
+        scene2 = Scene(mesh, camera_position, focal_point, 20, 800, view_up)
+        image = scene2.captureImage()
+        #_check_landmarks_2d(image)
 
-    landmarks_2d = identify_2D_landmarks(image)
+        landmarks_2d = identify_2D_landmarks(image)
+        landmarks_3d = [scene2.pickPoint(point_2d) for point_2d in landmarks_2d]
 
-    landmarks_3d = [scene.pickPoint(point_2d) for point_2d in landmarks_2d]
-
-    return landmarks_3d
+    _check_landmarks_2d(image, landmarks_2d)
+    _check_landmarks_3d(mesh, landmarks_3d)
+    return [landmarks_3d[x] for x in _landmark_ids]
 
 
 def identify_2D_landmarks(image):
@@ -51,8 +76,14 @@ def identify_2D_landmarks(image):
 
 
 class Scene:
-    def __init__(self, mesh, camera_position, focal_point, view_angle):
+    def __init__(self, mesh, camera_position, focal_point, view_angle, image_size, view_up = (0,1,0)):
+        self.graphics = vtk.vtkGraphicsFactory()
+        self.graphics.SetUseMesaClasses(1)
+        #self.img_factory = vtk.vtkImagingFactory()
+        #self.img_factory.SetUseMesaClasses(1)
+
         self.mesh = mesh
+        self.image_size = image_size
 
         self.mapper = vtk.vtkPolyDataMapper()
         self.mapper.SetInputData(self.mesh)
@@ -65,9 +96,10 @@ class Scene:
         self.renderer = vtk.vtkRenderer()
         self.renderer.SetActiveCamera(self.camera)
         self.renderer.AddActor(self.actor)
+        self.renderer.SetBackground(0,0,0)
 
         self.render_window = vtk.vtkRenderWindow()
-        self.render_window.SetOffScreenRendering(1)
+        self.render_window.SetOffScreenRendering(True)
         self.render_window.AddRenderer(self.renderer)
 
         self.interactor = vtk.vtkRenderWindowInteractor()
@@ -76,9 +108,11 @@ class Scene:
         self.picker = vtk.vtkPointPicker()
         self.interactor.SetPicker(self.picker)
 
-        self.render_window.SetSize(_image_size,_image_size)
+        self.render_window.SetSize(self.image_size, self.image_size)
         self.camera.SetPosition(camera_position[0], camera_position[1], camera_position[2])
         self.camera.SetFocalPoint(focal_point[0], focal_point[1], focal_point[2])
+        self.camera.SetViewUp(view_up)
+        self.camera.OrthogonalizeViewUp()
         self.camera.SetViewAngle(view_angle)
 
         self.image_filter = vtk.vtkWindowToImageFilter()
@@ -86,43 +120,45 @@ class Scene:
 
 
     def render(self):
-        self.render_window.SetOffScreenRendering(0)
         self.interactor.Initialize()
         self.render_window.Render()
         self.interactor.Start()
-        self.render_window.SetOffScreenRendering(1)
 
 
     def captureImage(self):
-        #self.interactor.Initialize()
         self.render_window.Render()
-
         self.image_filter.Update()
-        return _vtk_to_np(self.image_filter.GetOutput())
+        return utils.vtkImage_to_np(self.image_filter.GetOutput())
 
 
     def pickPoint(self, point_2d):
-        #self.interactor.Initialize()
         self.render_window.Render()
 
         # the second axis of the image is flipped...
-        point_2d = (point_2d[0], _image_size - point_2d[1])
+        point_2d = (point_2d[0], self.image_size - point_2d[1])
 
         self.picker.Pick(point_2d[0], point_2d[1], 0, self.renderer)
         point_id = self.picker.GetPointId()
-        point_3d = self.mesh.GetPoints().GetPoint(point_id)
+
+        if point_id >=0 and point_id < self.mesh.GetNumberOfPoints():
+            point_3d = self.mesh.GetPoints().GetPoint(point_id)
+        else:
+            point_3d = None
 
         return point_3d
 
 
-def _check_landmarks_2d(image, landmarks_2d):
+def _check_landmarks_2d(image, landmarks_2d=None):
     image = image.copy()
 
-    for point_2d in landmarks_2d:
-        cv2.circle(image, point_2d, 2, (0,0,255))
+    if landmarks_2d:
+        for point_2d in landmarks_2d:
+            cv2.circle(image, point_2d, 2, (255,255,0))
 
     cv2.imshow('im', image)
-    cv2.waitKey(0)
+
+    cv2.waitKey(3000)
+    cv2.destroyAllWindows()
 
 
 def _check_landmarks_3d(mesh, landmarks_3d):
@@ -165,25 +201,27 @@ def _check_landmarks_3d(mesh, landmarks_3d):
     renderWindowInteractor.Start()
 
 
-def _compute_camera(landmarks):
+def _compute_frontal_camera_settings(landmarks, face_distance):
     nose_bridge = np.asarray(landmarks[27])
     nose_tip = np.asarray(landmarks[30])
     left_eye = np.asarray(landmarks[45])
     left_lip = np.asarray(landmarks[54])
     right_eye = np.asarray(landmarks[36])
     right_lip = np.asarray(landmarks[48])
-    chin = np.asarray(landmarks[8])
+    ls = np.asarray(landmarks[51])
 
-    v1 = np.subtract(right_lip, nose_bridge)
-    v2 = np.subtract(left_lip, nose_bridge)
+
+    v1 = np.subtract(right_lip, left_eye)
+    v2 = np.subtract(left_lip, right_eye)
 
     direction = np.cross(v1, v2)
     direction = direction / np.linalg.norm(direction)
 
     focal_point = nose_tip
-    camera_position = nose_tip + _face_distance*direction
+    camera_position = nose_tip + face_distance*direction
+    view_up = nose_bridge - ls
 
-    return focal_point, camera_position
+    return focal_point, camera_position, view_up
 
 
 def _compute_centroid(mesh):
@@ -193,21 +231,4 @@ def _compute_centroid(mesh):
 
     return com.GetCenter()
     
-
-def _vtk_to_np(image):
-    rows, cols, _ = image.GetDimensions()
-    scalars = image.GetPointData().GetScalars()
-
-    np_array = vtk_to_numpy(scalars)
-    np_array = np_array.reshape(rows, cols, -1)
-
-    # vtk and cv2 use different colorspaces...
-    red, green, blue = np.dsplit(np_array, np_array.shape[-1])
-    np_array = np.stack([blue, green, red], 2).squeeze()
-
-    # the first axis of the image is also flipped...
-    np_array = np.flip(np_array, 0)
-
-    return np_array
-
 

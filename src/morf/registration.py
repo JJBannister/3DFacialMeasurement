@@ -40,6 +40,8 @@ def non_rigid_icp(source_mesh, target_mesh,
 
     stiff = max_stiffness
     X_old = None
+
+    # Go
     for loop in range(max_iterations):
         if stiff < min_stiffness:
             break
@@ -151,6 +153,7 @@ def spline(source_mesh, source_landmarks, target_landmarks):
     transform.Update()
 
     return transform.GetOutput()
+
 
 def affine_alignment(source_mesh, source_landmarks, target_landmarks):
     """
