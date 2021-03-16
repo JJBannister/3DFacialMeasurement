@@ -12,7 +12,7 @@ _face_distance = 700
 _landmark_ids = [36,39,27,42,45,30,33,60,51,64,57,8]
 
 
-def identify_3D_landmarks(mesh):
+def identify_3D_landmarks(mesh, visualize = True):
     """
     Returns a set of 3D facial landmarks on the mesh
 
@@ -39,7 +39,8 @@ def identify_3D_landmarks(mesh):
         if len(fr.face_landmarks(image)) > 0: 
             print("Face Located")
             landmarks_2d = identify_2D_landmarks(image)
-            _check_landmarks_2d(image, landmarks_2d)
+            if visualize:
+                _check_landmarks_2d(image, landmarks_2d)
             landmarks_3d = [scene.pickPoint(point_2d) for point_2d in landmarks_2d]
             break
 
@@ -57,8 +58,9 @@ def identify_3D_landmarks(mesh):
         landmarks_2d = identify_2D_landmarks(image)
         landmarks_3d = [scene2.pickPoint(point_2d) for point_2d in landmarks_2d]
 
-    _check_landmarks_2d(image, landmarks_2d)
-    _check_landmarks_3d(mesh, landmarks_3d)
+    if visualize:
+        _check_landmarks_2d(image, landmarks_2d)
+        _check_landmarks_3d(mesh, landmarks_3d)
     return [landmarks_3d[x] for x in _landmark_ids]
 
 
