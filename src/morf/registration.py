@@ -9,7 +9,8 @@ from . import utils
 def non_rigid_icp(source_mesh, target_mesh,
                   max_iterations=50, norm_threshold=3,
                   max_stiffness=10000, min_stiffness=100, stiffness_step_factor=2,
-                  verbose=True):
+                  verbose=True,
+                  point_identifier = None):
 
     """
     Applies the n-icp algorithm to the source mesh.
@@ -36,7 +37,8 @@ def non_rigid_icp(source_mesh, target_mesh,
         print("N src points: ", n_points)
         print("N src connections: ", n_connections)
 
-    point_identifier = PointIdentifier(target_mesh)
+    if point_identifier is None:
+        point_identifier = PointIdentifier(target_mesh)
 
     stiff = max_stiffness
     X_old = None
@@ -239,3 +241,25 @@ class PointIdentifier:
             closest_points[i,2] = closest_point[2]
 
         return closest_points, is_valid
+
+
+class CorrespondenceIdentifier:
+    def __init__(self, target_mesh, target_mesh_corresponding_verts, source_mesh_corresponding_verts):
+        self.target_mesh_points = utils.vtkPoints_to_np(target_mesh.GetPoints())[target_mesh_corresponding_verts,:]
+        self.source_mesh_corresponding_verts = source_mesh_corresponding_verts
+
+    def get_closest_points(self, source_points):
+        closest_points = np.zeros(shape=source_points.shape)
+        closest_points[self.source_mesh_corresponding_verts,:] = self.target_mesh_points
+
+        is_valid = np.repeat(False, closest_points.shape[0])
+        is_valid[self.source_mesh_corresponding_verts] = True
+
+        #save landmarks in meshlab's picked-points format
+        # import meshlab_pickedpoints
+        # points = source_points[self.source_mesh_corresponding_verts,:]
+        # data=dict(zip(self.names,points))
+        # with open('/home/bzfgrewe/tmp/bu3dfe/data/M0029/SU04/correspondences.pp','w') as f:
+        #     meshlab_pickedpoints.dump(data,f)
+
+        return closest_points, list(is_valid)
