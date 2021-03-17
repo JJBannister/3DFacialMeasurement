@@ -255,11 +255,4 @@ class CorrespondenceIdentifier:
         is_valid = np.repeat(False, closest_points.shape[0])
         is_valid[self.source_mesh_corresponding_verts] = True
 
-        #save landmarks in meshlab's picked-points format
-        # import meshlab_pickedpoints
-        # points = source_points[self.source_mesh_corresponding_verts,:]
-        # data=dict(zip(self.names,points))
-        # with open('/home/bzfgrewe/tmp/bu3dfe/data/M0029/SU04/correspondences.pp','w') as f:
-        #     meshlab_pickedpoints.dump(data,f)
-
         return closest_points, list(is_valid)
