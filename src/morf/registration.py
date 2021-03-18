@@ -157,7 +157,7 @@ def spline(source_mesh, source_landmarks, target_landmarks):
     return transform.GetOutput()
 
 
-def affine_alignment(source_mesh, source_landmarks, target_landmarks):
+def affine_alignment(source_mesh, source_landmarks, target_landmarks, similarity_only = False):
     """
     Applies an affine transformation to the source mesh and landmarks
 
@@ -176,7 +176,10 @@ def affine_alignment(source_mesh, source_landmarks, target_landmarks):
     affine = vtk.vtkLandmarkTransform()
     affine.SetSourceLandmarks(src)
     affine.SetTargetLandmarks(tar)
-    affine.SetModeToAffine()
+    if similarity_only:
+        affine.SetModeToSimilarity()
+    else:
+        affine.SetModeToAffine()
     affine.Update()
 
     transform_mesh = vtk.vtkTransformPolyDataFilter()
