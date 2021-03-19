@@ -4,7 +4,6 @@ import cv2
 import vtk
 import numpy as np
 import face_recognition as fr
-
 from . import utils
 
 _image_size = 1000
@@ -12,7 +11,7 @@ _face_distance = 700
 _landmark_ids = [36,39,27,42,45,30,33,60,51,64,57,8,62,66,31,35]
 _landmark_names = ['EXR', 'ENR', 'N', 'ENL', 'EXL', 'PRN', 'SN', 'CHR', 'LS', 'CHL', 'LI', 'GN', 'STOSUP', 'STOINF','ALAR','ALAL']
 
-def identify_3D_landmarks(mesh, visualize = True):
+def identify_3D_landmarks(mesh, return_all_landmarks = False, visualize = True, random_perturbation = None, perturbation_range = 200):
     """
     Returns a set of 3D facial landmarks on the mesh
 
@@ -58,10 +57,38 @@ def identify_3D_landmarks(mesh, visualize = True):
         landmarks_2d = identify_2D_landmarks(image)
         landmarks_3d = [scene2.pickPoint(point_2d) for point_2d in landmarks_2d]
 
+
+    if random_perturbation is not None:
+        print("Doing random samples")
+        collected_lm = None
+        # recompute the camera position for better landmarks
+        for i in range(random_perturbation):
+            print(i)
+            perturb = np.random.uniform(-perturbation_range,perturbation_range,2)
+            perturb = np.hstack([perturb,0])
+            scene2 = Scene(mesh, camera_position + perturb, focal_point, 20, 800, view_up)
+            image = scene2.captureImage()
+            
+            landmarks_2d = identify_2D_landmarks(image)
+            print(landmarks_2d)
+            _check_landmarks_2d(image,landmarks_2d)
+            landmarks_3d = np.array([scene2.pickPoint(point_2d) for point_2d in landmarks_2d]).flatten()
+
+            if collected_lm is not None:
+                collected_lm = np.vstack([collected_lm,landmarks_3d])
+            else:
+                collected_lm = landmarks_3d
+        landmarks_3d=np.mean(collected_lm,axis=0).reshape(-1,3)
+
+
     if visualize:
         _check_landmarks_2d(image, landmarks_2d)
         _check_landmarks_3d(mesh, landmarks_3d)
-    return [landmarks_3d[x] for x in _landmark_ids]
+
+    if return_all_landmarks:
+        return landmarks_3d
+    else:
+        return [landmarks_3d[x] for x in _landmark_ids]
 
 
 def identify_2D_landmarks(image):
@@ -159,7 +186,7 @@ def _check_landmarks_2d(image, landmarks_2d=None):
 
     cv2.imshow('im', image)
 
-    cv2.waitKey(3000)
+    cv2.waitKey(1000)
     cv2.destroyAllWindows()
 
 
