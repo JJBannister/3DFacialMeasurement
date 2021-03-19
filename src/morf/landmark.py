@@ -10,7 +10,7 @@ from . import utils
 _image_size = 1000
 _face_distance = 700
 _landmark_ids = [36,39,27,42,45,30,33,60,51,64,57,8,62,66,31,35]
-
+_landmark_names = ['EXR', 'ENR', 'N', 'ENL', 'EXL', 'PRN', 'SN', 'CHR', 'LS', 'CHL', 'LI', 'GN', 'STOSUP', 'STOINF','ALAR','ALAL']
 
 def identify_3D_landmarks(mesh, visualize = True):
     """
