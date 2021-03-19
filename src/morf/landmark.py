@@ -11,7 +11,7 @@ _face_distance = 700
 _landmark_ids = [36,39,27,42,45,30,33,60,51,64,57,8,62,66,31,35]
 _landmark_names = ['EXR', 'ENR', 'N', 'ENL', 'EXL', 'PRN', 'SN', 'CHR', 'LS', 'CHL', 'LI', 'GN', 'STOSUP', 'STOINF','ALAR','ALAL']
 
-def identify_3D_landmarks(mesh, return_all_landmarks = False, visualize = True, random_perturbation = None, perturbation_range = 200):
+def identify_3D_landmarks(mesh, return_all_landmarks = False, visualize = True, perturbation_iterations = None, perturbation_range = 200):
     """
     Returns a set of 3D facial landmarks on the mesh
 
@@ -58,11 +58,11 @@ def identify_3D_landmarks(mesh, return_all_landmarks = False, visualize = True, 
         landmarks_3d = [scene2.pickPoint(point_2d) for point_2d in landmarks_2d]
 
 
-    if random_perturbation is not None:
+    if perturbation_iterations is not None:
         print("Doing random samples")
         collected_lm = None
         # recompute the camera position for better landmarks
-        for i in range(random_perturbation):
+        for i in range(perturbation_iterations):
             print(i)
             perturb = np.random.uniform(-perturbation_range,perturbation_range,2)
             perturb = np.hstack([perturb,0])
