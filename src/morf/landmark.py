@@ -70,8 +70,8 @@ def identify_3D_landmarks(mesh, return_all_landmarks = False, visualize = True, 
             image = scene2.captureImage()
             
             landmarks_2d = identify_2D_landmarks(image)
-            print(landmarks_2d)
-            _check_landmarks_2d(image,landmarks_2d)
+            if (visualize):
+                _check_landmarks_2d(image,landmarks_2d)
             landmarks_3d = np.array([scene2.pickPoint(point_2d) for point_2d in landmarks_2d]).flatten()
 
             if collected_lm is not None:
