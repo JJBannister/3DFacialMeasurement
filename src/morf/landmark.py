@@ -47,22 +47,27 @@ def identify_3D_landmarks(mesh, return_all_landmarks = False, visualize = True, 
         print("Face Not Found!")
         return
 
+    focal_point, camera_position, view_up = _compute_frontal_camera_settings(landmarks_3d, 800)
+
     # recompute the camera position for better landmarks
     for i in range(2):
-        focal_point, camera_position, view_up = _compute_frontal_camera_settings(landmarks_3d, 800)
         scene2 = Scene(mesh, camera_position, focal_point, 20, 800, view_up)
         image = scene2.captureImage()
         #_check_landmarks_2d(image)
 
         landmarks_2d = identify_2D_landmarks(image)
-        landmarks_3d = [scene2.pickPoint(point_2d) for point_2d in landmarks_2d]
+        if len(landmarks_2d) > 0:
+            landmarks_3d = [scene2.pickPoint(point_2d) for point_2d in landmarks_2d]
+            focal_point, camera_position, view_up = _compute_frontal_camera_settings(landmarks_3d, 800)
+
 
 
     if perturbation_iterations is not None:
         print("Doing random samples")
         collected_lm = None
         # recompute the camera position for better landmarks
-        for i in range(perturbation_iterations):
+        i = 0
+        while i < perturbation_iterations:
             print(i)
             perturb = np.random.uniform(-perturbation_range,perturbation_range,2)
             perturb = np.hstack([perturb,0])
@@ -70,15 +75,21 @@ def identify_3D_landmarks(mesh, return_all_landmarks = False, visualize = True, 
             image = scene2.captureImage()
             
             landmarks_2d = identify_2D_landmarks(image)
-            if (visualize):
-                _check_landmarks_2d(image,landmarks_2d)
-            landmarks_3d = np.array([scene2.pickPoint(point_2d) for point_2d in landmarks_2d]).flatten()
+            if len(landmarks_2d) > 0:
+                if (visualize):
+                    _check_landmarks_2d(image,landmarks_2d)
+                landmarks_3d = np.array([scene2.pickPoint(point_2d) for point_2d in landmarks_2d]).flatten()
 
-            if collected_lm is not None:
-                collected_lm = np.vstack([collected_lm,landmarks_3d])
+                if collected_lm is not None:
+                    collected_lm = np.vstack([collected_lm,landmarks_3d])
+                else:
+                    collected_lm = landmarks_3d
+                
+                i+=1
             else:
-                collected_lm = landmarks_3d
-        landmarks_3d=np.mean(collected_lm,axis=0).reshape(-1,3)
+                print("Face not detected...")
+        if landmarks_3d.shape[0] > 1:
+            landmarks_3d=np.nanmedian(collected_lm,axis=0).reshape(-1,3)
 
 
     if visualize:
@@ -172,7 +183,7 @@ class Scene:
         if point_id >=0 and point_id < self.mesh.GetNumberOfPoints():
             point_3d = self.mesh.GetPoints().GetPoint(point_id)
         else:
-            point_3d = None
+            point_3d = np.nan, np.nan, np.nan
 
         return point_3d
 
