@@ -26,7 +26,7 @@ def non_rigid_icp(source_mesh, target_mesh,
 
     # Setup
     source_points = utils.vtkPoints_to_np(source_mesh.GetPoints())
-    connections = utils.extract_connections(source_mesh)
+    connections, edge_scale = utils.extract_connections(source_mesh)
 
     n_points = source_mesh.GetPoints().GetNumberOfPoints()
     n_connections = len(connections)
@@ -64,8 +64,8 @@ def non_rigid_icp(source_mesh, target_mesh,
         for i in range(n_connections):
             line = connections[i]
             for j in range(4):
-                A[4*i+j, 4*line[0]+j] = -stiff
-                A[4*i+j, 4*line[1]+j] = stiff
+                A[4*i+j, 4*line[0]+j] = -stiff*edge_scale[i]
+                A[4*i+j, 4*line[1]+j] = stiff*edge_scale[i]
 
         # correspondence
         for i in range(n_points):

@@ -38,13 +38,22 @@ def extract_connections(mesh):
     lines = edges.GetOutput().GetLines()
 
     connections = []
+    edges_length = []
     ids = vtk.vtkIdList()
 
     lines.InitTraversal()
     while lines.GetNextCell(ids):
-        connections.append((ids.GetId(0), ids.GetId(1)))
-
-    return connections
+        p1_id = ids.GetId(0)
+        p2_id = ids.GetId(1)
+        points = vtk_to_numpy(mesh.GetPoints().GetData())
+        connections.append((p1_id, p2_id))
+        p1 = points[p1_id]
+        p2 = points[p2_id]
+        edge_length = np.linalg.norm(p1 - p2)
+        edges_length.append(edge_length)
+    edges_length = np.array(edges_length)
+    edges_length_norm = edges_length / edges_length.mean()
+    return connections, edges_length_norm
 
 
 def save_landmarks(landmarks, filename):
